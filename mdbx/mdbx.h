@@ -3531,6 +3531,11 @@ struct MDBX_commit_latency {
   uint32_t ending;
   /** \brief The total duration of a commit. */
   uint32_t whole;
+
+  uint32_t sync_locked;
+
+  uint32_t msync_count;
+  uint32_t msync_total_duration;
 };
 #ifndef __cplusplus
 /** \ingroup c_statinfo */
