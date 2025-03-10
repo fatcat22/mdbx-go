@@ -28189,9 +28189,16 @@ MDBX_INTERNAL_FUNC int mdbx_fsync(mdbx_filehandle_t fd,
       __fallthrough /* fall through */;
 #endif /* Linux */
 #endif /* _POSIX_SYNCHRONIZED_IO > 0 */
-    default:
-      if (fsync(fd) == 0)
+    default: {
+      clock_t start_time = clock();
+      if (fsync(fd) == 0) {
+        clock_t end_time = clock();
+        double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+        double time_taken_ms = time_taken * 1000.0;
+        printf("fsync in mdbxdist/mdbx.c mdbx_fsync time: %.3f ms\n", time_taken_ms);
         return MDBX_SUCCESS;
+      }
+    }
     }
 
     int rc = errno;

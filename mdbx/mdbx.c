@@ -14082,6 +14082,9 @@ static __inline void mdbx_txn_merge(MDBX_txn *const parent, MDBX_txn *const txn,
 }
 
 int mdbx_txn_commit_ex(MDBX_txn *txn, MDBX_commit_latency *latency) {
+  printf("yangzhe: start mdbx_txn_commit_ex\n");
+  const char* result = NULL;
+  clock_t start_time = clock();
   STATIC_ASSERT(MDBX_TXN_FINISHED ==
                 MDBX_TXN_BLOCKED - MDBX_TXN_HAS_CHILD - MDBX_TXN_ERROR);
   const uint64_t ts_0 = latency ? mdbx_osal_monotime() : 0;
@@ -14385,9 +14388,12 @@ int mdbx_txn_commit_ex(MDBX_txn *txn, MDBX_commit_latency *latency) {
   end_mode = MDBX_END_COMMITTED | MDBX_END_UPDATE | MDBX_END_EOTDONE;
 
 done:
+  result = "success";
   rc = mdbx_txn_end(txn, end_mode);
 
 provide_latency:
+if (result == NULL)
+  result = "provide_latency";
   if (latency) {
     latency->audit = audit_duration;
     latency->preparation =
@@ -14402,10 +14408,15 @@ provide_latency:
     latency->ending = ts_4 ? mdbx_osal_monotime_to_16dot16(ts_5 - ts_4) : 0;
     latency->whole = mdbx_osal_monotime_to_16dot16(ts_5 - ts_0);
   }
+  clock_t end_time = clock();
+  double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+  double time_taken_ms = time_taken * 1000.0;
+  //printf("yangzhe: mdbx_txn_commit_ex %s. cost %.3f ms\n", result, time_taken_ms);
   return rc;
 
 fail:
   mdbx_txn_abort(txn);
+  result = "failed";
   goto provide_latency;
 }
 
@@ -14989,12 +15000,13 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
 #if MDBX_ENABLE_PGOP_STAT
     env->me_lck->mti_pgop_stat.wops.weak += 1;
 #endif /* MDBX_ENABLE_PGOP_STAT */
-    if (flags & MDBX_WRITEMAP)
+    if (flags & MDBX_WRITEMAP) {
       rc =
           mdbx_msync(&env->me_dxb_mmap, 0,
                      pgno_align2os_bytes(env, pending->mm_geo.next), mode_bits);
-    else
+    }else{
       rc = mdbx_fsync(env->me_lazy_fd, mode_bits);
+    }
     if (unlikely(rc != MDBX_SUCCESS))
       goto fail;
     rc = (flags & MDBX_SAFE_NOSYNC) ? MDBX_RESULT_TRUE /* carry non-steady */
@@ -28189,9 +28201,16 @@ MDBX_INTERNAL_FUNC int mdbx_fsync(mdbx_filehandle_t fd,
       __fallthrough /* fall through */;
 #endif /* Linux */
 #endif /* _POSIX_SYNCHRONIZED_IO > 0 */
-    default:
-      if (fsync(fd) == 0)
+    default: {
+      clock_t start_time = clock();
+      if (fsync(fd) == 0) {
+        clock_t end_time = clock();
+        double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+        double time_taken_ms = time_taken * 1000.0;
+        printf("yangzhe: fsync in mdbx/mdbx.c mdbx_fsync time: %.3f ms\n", time_taken_ms);
         return MDBX_SUCCESS;
+    }
+    }
     }
 
     int rc = errno;
@@ -28322,14 +28341,21 @@ MDBX_INTERNAL_FUNC int mdbx_msync(mdbx_mmap_t *map, size_t offset,
   if (!FlushViewOfFile(ptr, length))
     return (int)GetLastError();
 #else
+  printf("yangzhe: mdbx_msync. mode_bits: %d. mdbx_linux_kernel_version: %d\n", mode_bits, mdbx_linux_kernel_version);
 #if defined(__linux__) || defined(__gnu_linux__)
-  if (mode_bits == MDBX_SYNC_NONE && mdbx_linux_kernel_version > 0x02061300)
+  if (mode_bits == MDBX_SYNC_NONE && mdbx_linux_kernel_version > 0x02061300) {
     /* Since Linux 2.6.19, MS_ASYNC is in fact a no-op. The kernel properly
      * tracks dirty pages and flushes them to storage as necessary. */
     return MDBX_SUCCESS;
+  }
 #endif /* Linux */
+   clock_t start_time = clock();
   if (msync(ptr, length, (mode_bits & MDBX_SYNC_DATA) ? MS_SYNC : MS_ASYNC))
     return errno;
+  clock_t end_time = clock();
+  double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+  double time_taken_ms = time_taken * 1000.0;
+  printf("yangzhe: msync in mdbx/mdbx.c mdbx_msync time: %.3f ms. length: %lld\n", time_taken_ms, length);
   mode_bits &= ~MDBX_SYNC_DATA;
 #endif
   return mdbx_fsync(map->fd, mode_bits);
