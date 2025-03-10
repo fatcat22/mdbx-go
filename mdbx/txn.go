@@ -201,9 +201,9 @@ type CommitLatency struct {
 	Ending      time.Duration
 	Whole       time.Duration
 
-	SyncLocked           time.Duration
-	msync_count          uint32
-	msync_total_duration time.Duration
+	SyncLocked         time.Duration
+	MsyncCount         uint32
+	MsyncTotalDuration time.Duration
 }
 
 func (txn *Txn) commit() (CommitLatency, error) {
@@ -211,16 +211,16 @@ func (txn *Txn) commit() (CommitLatency, error) {
 	ret := C.mdbx_txn_commit_ex(txn._txn, &_stat)
 	txn.clearTxn()
 	s := CommitLatency{
-		Preparation:          toDuration(_stat.preparation),
-		GC:                   toDuration(_stat.gc),
-		Audit:                toDuration(_stat.audit),
-		Write:                toDuration(_stat.write),
-		Sync:                 toDuration(_stat.sync),
-		Ending:               toDuration(_stat.ending),
-		Whole:                toDuration(_stat.whole),
-		SyncLocked:           toDuration(_stat.sync_locked),
-		msync_count:          uint32(_stat.msync_count),
-		msync_total_duration: toDuration(_stat.msync_total_duration),
+		Preparation:        toDuration(_stat.preparation),
+		GC:                 toDuration(_stat.gc),
+		Audit:              toDuration(_stat.audit),
+		Write:              toDuration(_stat.write),
+		Sync:               toDuration(_stat.sync),
+		Ending:             toDuration(_stat.ending),
+		Whole:              toDuration(_stat.whole),
+		SyncLocked:         toDuration(_stat.sync_locked),
+		MsyncCount:         uint32(_stat.msync_count),
+		MsyncTotalDuration: toDuration(_stat.msync_total_duration),
 	}
 	if ret != success {
 		return s, operrno("mdbx_txn_commit_ex", ret)

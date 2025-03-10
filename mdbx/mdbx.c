@@ -15011,9 +15011,10 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
                      pgno_align2os_bytes(env, pending->mm_geo.next), mode_bits);
       if (latency != NULL) {
         latency->msync_count++;
-        latency->msync_total_duration = mdbx_osal_monotime_to_16dot16(mdbx_osal_monotime() - ts);
+        latency->msync_total_duration += mdbx_osal_monotime_to_16dot16(mdbx_osal_monotime() - ts);
       }
     }else{
+      printf("yangzhe: suprised that it call mdbx_fsync");
       rc = mdbx_fsync(env->me_lazy_fd, mode_bits);
     }
     if (unlikely(rc != MDBX_SUCCESS))
