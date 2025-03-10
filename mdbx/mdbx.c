@@ -14851,7 +14851,9 @@ static size_t mdbx_madvise_threshold(const MDBX_env *env,
 
 static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
                             MDBX_meta *const pending, MDBX_commit_latency *latency) {
-  uint64_t ts = 0;
+  uint64_t ts = 0, ts1 = 0, ts1_e = 0, ts2 = 0, ts2_e = 0, ts3 = 0, ts3_e = 0,
+    ts4 = 0, ts4_e = 0, ts5 = 0, ts5_e = 0, ts6 = 0, ts6_e = 0, ts7 = 0, ts7_e = 0;
+  const uint64_t ts0 = mdbx_osal_monotime();
   mdbx_assert(env, ((env->me_flags ^ flags) & MDBX_WRITEMAP) == 0);
   const MDBX_meta *const meta0 = METAPAGE(env, 0);
   const MDBX_meta *const meta1 = METAPAGE(env, 1);
@@ -14883,6 +14885,7 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
 
   pgno_t shrink = 0;
   if (flags & MDBX_SHRINK_ALLOWED) {
+    ts1 = mdbx_osal_monotime();
     /* LY: check conditions to discard unused pages */
     const pgno_t largest_pgno = find_largest_snapshot(
         env, (head->mm_geo.next > pending->mm_geo.next) ? head->mm_geo.next
@@ -14987,11 +14990,16 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
         }
       }
     }
+    ts1_e = mdbx_osal_monotime();
+    if (latency != NULL) {
+      latency->sync_locked_1 = mdbx_osal_monotime_to_16dot16(ts1_e - ts1);
+    }
   }
 
   /* LY: step#1 - sync previously written/updated data-pages */
   rc = MDBX_RESULT_FALSE /* carry steady */;
   if (atomic_load32(&env->me_lck->mti_unsynced_pages, mo_Relaxed)) {
+  ts2 = mdbx_osal_monotime();
     mdbx_assert(env, ((flags ^ env->me_flags) & MDBX_WRITEMAP) == 0);
     enum mdbx_syncmode_bits mode_bits = MDBX_SYNC_NONE;
     if ((flags & MDBX_SAFE_NOSYNC) == 0) {
@@ -15021,6 +15029,10 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
       goto fail;
     rc = (flags & MDBX_SAFE_NOSYNC) ? MDBX_RESULT_TRUE /* carry non-steady */
                                     : MDBX_RESULT_FALSE /* carry steady */;
+    ts2_e = mdbx_osal_monotime();
+    if (latency != NULL) {
+      latency->sync_locked_2 = mdbx_osal_monotime_to_16dot16(ts2_e - ts2);
+    }
   }
   mdbx_assert(env, meta_checktxnid(env, pending, true));
 
@@ -15035,6 +15047,7 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
     unaligned_poke_u64(4, pending->mm_datasync_sign, MDBX_DATASIGN_WEAK);
   }
 
+  ts3 = mdbx_osal_monotime();
   MDBX_meta *target = nullptr;
   if (constmeta_txnid(env, head) ==
       unaligned_peek_u64(4, pending->mm_txnid_a)) {
@@ -15058,6 +15071,10 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
   else {
     mdbx_assert(env, head == meta2);
     target = (MDBX_meta *)meta_ancient_prefer_weak(env, meta0, meta1);
+  }
+  ts3_e = mdbx_osal_monotime();
+  if (latency != NULL) {
+    latency->sync_locked_3 = mdbx_osal_monotime_to_16dot16(ts3_e - ts3);
   }
 
   /* LY: step#2 - update meta-page. */
@@ -15105,6 +15122,7 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
   env->me_lck->mti_pgop_stat.wops.weak += 1;
 #endif /* MDBX_ENABLE_PGOP_STAT */
   if (flags & MDBX_WRITEMAP) {
+    ts4 = mdbx_osal_monotime();
     mdbx_jitter4testing(true);
     if (likely(target != head)) {
       /* LY: 'invalidate' the meta. */
@@ -15160,7 +15178,12 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
       }
     if (unlikely(rc != MDBX_SUCCESS))
       goto fail;
+    ts4_e = mdbx_osal_monotime();
+    if (latency != NULL) {
+      latency->sync_locked_4 = mdbx_osal_monotime_to_16dot16(ts4_e - ts4);
+    }
   } else {
+    ts5 = mdbx_osal_monotime();
     const MDBX_meta undo_meta = *target;
     const mdbx_filehandle_t fd = (env->me_dsync_fd != INVALID_HANDLE_VALUE)
                                      ? env->me_dsync_fd
@@ -15186,10 +15209,15 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
       if (rc != MDBX_SUCCESS)
         goto undo;
     }
+    ts5_e = mdbx_osal_monotime();
+    if (latency != NULL) {
+      latency-> sync_locked_5 = mdbx_osal_monotime_to_16dot16(ts5_e - ts5);
+    }
   }
 
   meta_cache_clear(env);
   uint64_t timestamp = 0;
+  ts6 = mdbx_osal_monotime();
   while ("workaround for todo4recovery://erased_by_github/libmdbx/issues/269") {
     rc = meta_waittxnid(env, target, &timestamp);
     if (likely(rc == MDBX_SUCCESS))
@@ -15197,6 +15225,11 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
     if (unlikely(rc != MDBX_RESULT_TRUE))
       goto fail;
   }
+  ts6_e = mdbx_osal_monotime();
+  if (latency != NULL) {
+    latency->sync_locked_6 = mdbx_osal_monotime_to_16dot16(ts6_e - ts6);
+  }
+  ts7 = mdbx_osal_monotime();
   env->me_lck->mti_meta_sync_txnid.weak =
       (uint32_t)unaligned_peek_u64(4, pending->mm_txnid_a) -
       ((flags & MDBX_NOMETASYNC) ? UINT32_MAX / 3 : 0);
@@ -15216,6 +15249,10 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
   if (likely(lck))
     /* toggle oldest refresh */
     atomic_store32(&lck->mti_readers_refresh_flag, false, mo_Relaxed);
+  ts7_e = mdbx_osal_monotime();
+  if (latency != NULL) {
+    latency->sync_locked_7 = mdbx_osal_monotime_to_16dot16(ts7_e - ts7);
+  }
 
   return MDBX_SUCCESS;
 

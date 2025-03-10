@@ -3533,7 +3533,13 @@ struct MDBX_commit_latency {
   uint32_t whole;
 
   uint32_t sync_locked;
-
+  uint32_t sync_locked_1;
+  uint32_t sync_locked_2;
+  uint32_t sync_locked_3;
+  uint32_t sync_locked_4;
+  uint32_t sync_locked_5;
+  uint32_t sync_locked_6;
+  uint32_t sync_locked_7;
   uint32_t msync_count;
   uint32_t msync_total_duration;
 };
