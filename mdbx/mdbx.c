@@ -14851,8 +14851,9 @@ static size_t mdbx_madvise_threshold(const MDBX_env *env,
 
 static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
                             MDBX_meta *const pending, MDBX_commit_latency *latency) {
-  uint64_t ts = 0, ts1 = 0, ts1_e = 0, ts2 = 0, ts2_e = 0, ts3 = 0, ts3_e = 0,
+  uint64_t ts1 = 0, ts1_e = 0, ts2 = 0, ts2_e = 0, ts3 = 0, ts3_e = 0,
     ts4 = 0, ts4_e = 0, ts5 = 0, ts5_e = 0, ts6 = 0, ts6_e = 0, ts7 = 0, ts7_e = 0;
+  uint64_t ts2_1 = 0, ts2_1_e = 0, ts2_2 = 0, ts2_2_e = 0, ts2_3 = 0, ts2_3_e = 0, ts_4_1 = 0, ts_4_1_e = 0;
   const uint64_t ts0 = mdbx_osal_monotime();
   mdbx_assert(env, ((env->me_flags ^ flags) & MDBX_WRITEMAP) == 0);
   const MDBX_meta *const meta0 = METAPAGE(env, 0);
@@ -15004,8 +15005,13 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
     enum mdbx_syncmode_bits mode_bits = MDBX_SYNC_NONE;
     if ((flags & MDBX_SAFE_NOSYNC) == 0) {
       mode_bits = MDBX_SYNC_DATA;
+      ts2_1 = mdbx_osal_monotime();
       if (pending->mm_geo.next > meta_prefer_steady(env)->mm_geo.now)
         mode_bits |= MDBX_SYNC_SIZE;
+      ts2_1_e = mdbx_osal_monotime();
+      if (latency != NULL) {
+        latency->sync_locked_2_1 = mdbx_osal_monotime_to_16dot16(ts2_1_e - ts2_1);
+      }
       if (flags & MDBX_NOMETASYNC)
         mode_bits |= MDBX_SYNC_IODQ;
     }
@@ -15013,17 +15019,22 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
     env->me_lck->mti_pgop_stat.wops.weak += 1;
 #endif /* MDBX_ENABLE_PGOP_STAT */
     if (flags & MDBX_WRITEMAP) {
-      ts = mdbx_osal_monotime();
+      ts2_2 = mdbx_osal_monotime();
       rc =
           mdbx_msync(&env->me_dxb_mmap, 0,
                      pgno_align2os_bytes(env, pending->mm_geo.next), mode_bits);
+      ts2_2_e = mdbx_osal_monotime();
       if (latency != NULL) {
-        latency->msync_count++;
-        latency->msync_total_duration += mdbx_osal_monotime_to_16dot16(mdbx_osal_monotime() - ts);
+        // latency->msync_count++;
+        latency->sync_locked_2_2 += mdbx_osal_monotime_to_16dot16(ts2_2_e - ts2_2);
       }
     }else{
-      printf("yangzhe: suprised that it call mdbx_fsync");
+      ts2_3 = mdbx_osal_monotime();
       rc = mdbx_fsync(env->me_lazy_fd, mode_bits);
+      ts2_3_e = mdbx_osal_monotime();
+      if (latency != NULL) {
+        latency->sync_locked_2_3 += mdbx_osal_monotime_to_16dot16(ts2_3_e - ts2_3);
+      }
     }
     if (unlikely(rc != MDBX_SUCCESS))
       goto fail;
@@ -15167,14 +15178,14 @@ static int mdbx_sync_locked(MDBX_env *env, unsigned flags,
     mdbx_flush_incoherent_cpu_writeback();
     mdbx_jitter4testing(true);
     /* sync meta-pages */
-    ts = mdbx_osal_monotime();
+    ts_4_1 = mdbx_osal_monotime();
     rc =
         mdbx_msync(&env->me_dxb_mmap, 0, pgno_align2os_bytes(env, NUM_METAS),
                    (flags & MDBX_NOMETASYNC) ? MDBX_SYNC_NONE
                                              : MDBX_SYNC_DATA | MDBX_SYNC_IODQ);
+    ts_4_1_e = mdbx_osal_monotime();
       if (latency != NULL) {
-        latency->msync_count++;
-        latency->msync_total_duration = mdbx_osal_monotime_to_16dot16(mdbx_osal_monotime() - ts);
+        latency->sync_locked_4_sync_meta = mdbx_osal_monotime_to_16dot16(ts_4_1_e - ts_4_1);
       }
     if (unlikely(rc != MDBX_SUCCESS))
       goto fail;

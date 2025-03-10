@@ -201,16 +201,20 @@ type CommitLatency struct {
 	Ending      time.Duration
 	Whole       time.Duration
 
-	SyncLocked         time.Duration
-	Synclocked_1       time.Duration
-	Synclocked_2       time.Duration
-	Synclocked_3       time.Duration
-	Synclocked_4       time.Duration
-	Synclocked_5       time.Duration
-	Synclocked_6       time.Duration
-	Synclocked_7       time.Duration
-	MsyncCount         uint32
-	MsyncTotalDuration time.Duration
+	SyncLocked            time.Duration
+	Synclocked_1          time.Duration
+	Synclocked_2          time.Duration
+	Synclocked_2_1        time.Duration
+	Synclocked_2_2        time.Duration
+	Synclocked_2_3        time.Duration
+	Synclocked_3          time.Duration
+	Synclocked_4          time.Duration
+	Synclocked_4_SyncMeta time.Duration
+	Synclocked_5          time.Duration
+	Synclocked_6          time.Duration
+	Synclocked_7          time.Duration
+	MsyncCount            uint32
+	MsyncTotalDuration    time.Duration
 }
 
 func (txn *Txn) commit() (CommitLatency, error) {
@@ -218,21 +222,26 @@ func (txn *Txn) commit() (CommitLatency, error) {
 	ret := C.mdbx_txn_commit_ex(txn._txn, &_stat)
 	txn.clearTxn()
 	s := CommitLatency{
-		Preparation:  toDuration(_stat.preparation),
-		GC:           toDuration(_stat.gc),
-		Audit:        toDuration(_stat.audit),
-		Write:        toDuration(_stat.write),
-		Sync:         toDuration(_stat.sync),
-		Ending:       toDuration(_stat.ending),
-		Whole:        toDuration(_stat.whole),
-		SyncLocked:   toDuration(_stat.sync_locked),
-		Synclocked_1: toDuration(_stat.sync_locked_1),
-		Synclocked_2: toDuration(_stat.sync_locked_2),
-		Synclocked_3: toDuration(_stat.sync_locked_3),
-		Synclocked_4: toDuration(_stat.sync_locked_4),
-		Synclocked_5: toDuration(_stat.sync_locked_5),
-		Synclocked_6: toDuration(_stat.sync_locked_6),
-		Synclocked_7: toDuration(_stat.sync_locked_7),
+		Preparation:    toDuration(_stat.preparation),
+		GC:             toDuration(_stat.gc),
+		Audit:          toDuration(_stat.audit),
+		Write:          toDuration(_stat.write),
+		Sync:           toDuration(_stat.sync),
+		Ending:         toDuration(_stat.ending),
+		Whole:          toDuration(_stat.whole),
+		SyncLocked:     toDuration(_stat.sync_locked),
+		Synclocked_1:   toDuration(_stat.sync_locked_1),
+		Synclocked_2:   toDuration(_stat.sync_locked_2),
+		Synclocked_2_1: toDuration(_stat.sync_locked_2_1),
+		Synclocked_2_2: toDuration(_stat.sync_locked_2_2),
+		Synclocked_2_3: toDuration(_stat.sync_locked_2_3),
+
+		Synclocked_3:          toDuration(_stat.sync_locked_3),
+		Synclocked_4:          toDuration(_stat.sync_locked_4),
+		Synclocked_4_SyncMeta: toDuration(_stat.sync_locked_4_sync_meta),
+		Synclocked_5:          toDuration(_stat.sync_locked_5),
+		Synclocked_6:          toDuration(_stat.sync_locked_6),
+		Synclocked_7:          toDuration(_stat.sync_locked_7),
 
 		MsyncCount:         uint32(_stat.msync_count),
 		MsyncTotalDuration: toDuration(_stat.msync_total_duration),
