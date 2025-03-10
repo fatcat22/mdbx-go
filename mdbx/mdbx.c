@@ -28412,13 +28412,8 @@ MDBX_INTERNAL_FUNC int mdbx_msync(mdbx_mmap_t *map, size_t offset,
     return MDBX_SUCCESS;
   }
 #endif /* Linux */
-   clock_t start_time = clock();
   if (msync(ptr, length, (mode_bits & MDBX_SYNC_DATA) ? MS_SYNC : MS_ASYNC))
     return errno;
-  clock_t end_time = clock();
-  double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-  double time_taken_ms = time_taken * 1000.0;
-  printf("yangzhe: msync in mdbx/mdbx.c mdbx_msync time: %.3f ms. length: %lld\n", time_taken_ms, length);
   mode_bits &= ~MDBX_SYNC_DATA;
 #endif
   return mdbx_fsync(map->fd, mode_bits);
