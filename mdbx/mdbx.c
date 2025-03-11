@@ -14116,6 +14116,7 @@ int mdbx_txn_commit_ex(MDBX_txn *txn, MDBX_commit_latency *latency) {
     goto done;
 
   if (txn->mt_child) {
+    printf("yangzhe: recursive call to mdbx_txn_commit_ex. txn ptr: % %llx", (size_t)txn->mt_child);
     rc = mdbx_txn_commit_ex(txn->mt_child, NULL);
     mdbx_tassert(txn, txn->mt_child == NULL);
     if (unlikely(rc != MDBX_SUCCESS))
