@@ -14082,7 +14082,7 @@ static __inline void mdbx_txn_merge(MDBX_txn *const parent, MDBX_txn *const txn,
 }
 
 int mdbx_txn_commit_ex(MDBX_txn *txn, MDBX_commit_latency *latency) {
-  printf("yangzhe: start mdbx_txn_commit_ex\n");
+  printf("yangzhe: start mdbx_txn_commit_ex. txn ptr: %llx\n", (size_t)txn);
   const char* result = NULL;
   clock_t start_time = clock();
   STATIC_ASSERT(MDBX_TXN_FINISHED ==
@@ -28404,7 +28404,7 @@ MDBX_INTERNAL_FUNC int mdbx_msync(mdbx_mmap_t *map, size_t offset,
   if (!FlushViewOfFile(ptr, length))
     return (int)GetLastError();
 #else
-  printf("yangzhe: mdbx_msync. mode_bits: %d. mdbx_linux_kernel_version: %d\n", mode_bits, mdbx_linux_kernel_version);
+  printf("yangzhe: mdbx_msync. offset: %lld. length: 0x%llx. mode_bits: %d. mdbx_linux_kernel_version: %d\n", offset, length, mode_bits, mdbx_linux_kernel_version);
 #if defined(__linux__) || defined(__gnu_linux__)
   if (mode_bits == MDBX_SYNC_NONE && mdbx_linux_kernel_version > 0x02061300) {
     /* Since Linux 2.6.19, MS_ASYNC is in fact a no-op. The kernel properly
